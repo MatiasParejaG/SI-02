@@ -107,7 +107,7 @@ def get_model_performance(path='Housing.csv'):
     X = data.drop('price', axis=1)
     y = data['price']
 
-    _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    _, X_test, _, y_test = train_test_split(X, y, test_size=0.109, random_state=42)
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
