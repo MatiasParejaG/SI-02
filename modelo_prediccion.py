@@ -133,3 +133,37 @@ if __name__ == '__main__':
     predictor = HousePriceModel()
     predictor.train_and_save_model()
     print("modelo")
+    
+    # Al final del archivo modelo_prediccion.py
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+import pandas as pd
+import numpy as np
+
+def get_statistics(path='Housing.csv'):
+    return pd.read_csv(path)
+
+def get_model_performance(path='Housing.csv'):
+    data = pd.read_csv(path)
+    binary_cols = ['mainroad', 'guestroom', 'basement', 
+                   'hotwaterheating', 'airconditioning', 'prefarea']
+    data[binary_cols] = data[binary_cols].apply(lambda x: x.map({'yes': 1, 'no': 0}))
+
+    encoder = LabelEncoder()
+    data['furnishingstatus'] = encoder.fit_transform(data['furnishingstatus'])
+
+    X = data.drop('price', axis=1)
+    y = data['price']
+
+    _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    model = LinearRegression()
+    model.fit(X_scaled, y)
+
+    X_test_scaled = scaler.transform(X_test)
+    y_pred = model.predict(X_test_scaled)
+
+    return y_test, y_pred
