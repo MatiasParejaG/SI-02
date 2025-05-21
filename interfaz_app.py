@@ -1,9 +1,10 @@
+# interfaz.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from modelo_prediccion import HousePriceModel, get_statistics, get_model_performance
-
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 class HousePriceApp:
     def __init__(self, root):
@@ -32,8 +33,6 @@ class HousePriceApp:
 
     def show_statistics(self):
         data = get_statistics()
-
-        # Seleccionamos solo las columnas numéricas para la correlación
         numeric_data = data.select_dtypes(include=['number'])
 
         plt.figure(figsize=(12, 8))
@@ -41,7 +40,6 @@ class HousePriceApp:
         plt.title('Matriz de Correlación entre Variables Numéricas')
         plt.show()
 
-        # Histograma de la columna 'price' si existe
         if 'price' in numeric_data.columns:
             plt.figure(figsize=(10, 6))
             sns.histplot(numeric_data['price'], kde=True)
@@ -49,20 +47,17 @@ class HousePriceApp:
             plt.xlabel('Precio')
             plt.ylabel('Frecuencia')
             plt.show()
-        else:
-            messagebox.showinfo("Aviso", "No se encontró la columna 'price' para graficar el histograma.")
 
     def show_model_performance(self):
         y_test, y_pred = get_model_performance()
-        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-        import numpy as np
-
+        
         mae = mean_absolute_error(y_test, y_pred)
         rmse = np.sqrt(mean_squared_error(y_test, y_pred))
         r2 = r2_score(y_test, y_pred)
+        mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
 
         messagebox.showinfo("Rendimiento del Modelo",
-                            f"MAE: {mae:.2f}\nRMSE: {rmse:.2f}\nR²: {r2:.4f}")
+                           f"MAE: {mae:.2f}\nRMSE: {rmse:.2f}\nR²: {r2:.4f}\nMAPE: {mape:.2f}%")
 
         plt.figure(figsize=(10, 6))
         plt.scatter(y_test, y_pred)
@@ -72,21 +67,17 @@ class HousePriceApp:
         plt.title('Regresión Lineal: Real vs Predicho')
         plt.show()
 
-
 class PredictPriceInterface:
     def __init__(self, root, predictor):
         self.root = root
         self.predictor = predictor
         self.entries = {}
-
-        # Mapeos de idioma para convertir entrada en español al valor esperado por el modelo
         self.bool_map = {'Sí': 'yes', 'No': 'no'}
         self.furnishing_map = {
             'No Amoblado': 'unfurnished',
             'Semi-Amoblado': 'semi-furnished',
             'Amoblado': 'furnished'
         }
-
         self.create_widgets()
 
     def create_widgets(self):
@@ -133,14 +124,12 @@ class PredictPriceInterface:
 
     def predict_price(self):
         try:
-            # Validar entradas numéricas
             area = float(self.entries['area'].get())
             bedrooms = int(self.entries['bedrooms'].get())
             bathrooms = int(self.entries['bathrooms'].get())
             stories = int(self.entries['stories'].get())
             parking = int(self.entries['parking'].get())
 
-            # Extraer y traducir valores de los comboboxes
             input_data = {
                 'area': area,
                 'bedrooms': bedrooms,
@@ -157,16 +146,41 @@ class PredictPriceInterface:
             }
 
             predicted_price = self.predictor.predict(input_data)
+            data = get_statistics()
+            mean_price = data['price'].mean()
+            percentage_diff = ((predicted_price - mean_price) / mean_price) * 100
+
             self.result_label.config(
-                text=f"Precio estimado: ${predicted_price:,.2f}",
+                text=f"Precio estimado: ${predicted_price:,.2f}\n"
+                     f"({percentage_diff:+.1f}% vs precio promedio)",
                 foreground="green"
             )
 
-        except ValueError:
-            messagebox.showerror("Error", "Por favor ingrese solo valores numéricos válidos en los campos correspondientes.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
+            # Gráfico de distribución
+            plt.figure(figsize=(10, 6))
+            sns.histplot(data['price'], kde=True)
+            plt.axvline(predicted_price, color='red', linestyle='--', label='Predicción')
+            plt.title(f'Distribución de Precios (Predicción: ${predicted_price:,.2f})')
+            plt.xlabel('Precio')
+            plt.ylabel('Frecuencia')
+            plt.legend()
+            plt.show()
 
+            # Gráfico comparativo
+            stats = data['price'].describe()
+            plt.figure(figsize=(10, 6))
+            bars = plt.bar(['Mínimo', 'Promedio', 'Máximo', 'Tu Predicción'],
+                          [stats['min'], stats['mean'], stats['max'], predicted_price])
+            bars[-1].set_color('red')
+            plt.title('Comparación con Estadísticas del Dataset')
+            plt.ylabel('Precio')
+            plt.xticks(rotation=45)
+            plt.show()
+
+        except ValueError:
+            messagebox.showerror("Error", "Ingrese valores numéricos válidos")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {e}")
 
 if __name__ == '__main__':
     root = tk.Tk()
